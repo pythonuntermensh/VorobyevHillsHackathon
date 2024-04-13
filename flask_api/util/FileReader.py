@@ -3,6 +3,7 @@ import csv
 from pypdf import PdfReader
 import PyPDF2
 from docx import Document
+from striprtf.striprtf import rtf_to_text
 
 class FileReader:
     def __init__(self):
@@ -53,6 +54,11 @@ class FileReader:
                 text += page.extractText()
         return text
     
+    def read_rtf(self, path):
+        with open(path) as infile:
+            content = infile.read()
+            return rtf_to_text(content)
+    
     def convert_to_text(self, file_path):
         text = ""
         file_extension = file_path.split('.')[-1].lower()
@@ -67,5 +73,7 @@ class FileReader:
         elif file_extension == 'txt':
             with open(file_path) as f:
                 text = f.read()
+        elif file_extension == 'rtf':
+            text = self.read_rtf(file_path)
 
         return text

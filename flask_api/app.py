@@ -1,8 +1,8 @@
 from datetime import datetime
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
+from flask_cors import CORS
 import os
 from util import FileReader, Predictor
-from flask_cors import CORS
 import pickle
 
 app = Flask(__name__)
@@ -30,7 +30,7 @@ def upload_files():
         if file.filename == '':
             return jsonify({'error': 'netu nekogo'})
         
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S.%f")
         filename = f"{timestamp}___|___{file.filename}"
 
         file_names.append(os.path.join(UPLOAD_FOLDER, filename))
@@ -58,6 +58,11 @@ def list_files():
         result.append({"name": file_name, "class": class_name, "timestamp": timestamp})
 
     return jsonify({'files': result})
+
+@app.route('/files/download', methods=['GET'])
+def download_file():
+    path = os.path.join(BASE_DIR, UPLOAD_FOLDER, request.args.get("class") + "___|___" + request.args.get("timestamp") + "___|___" + request.args.get('name'))
+    return send_file(path, as_attachment=True)
 
 
 def load_model():
