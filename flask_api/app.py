@@ -12,9 +12,8 @@ model = None
 predictor = None
 file_reader = FileReader()
 
-MODEL_FILE_NAME = "model.pk"
-
 UPLOAD_FOLDER = 'archieve'
+UPLOAD_MODEL_FOLDER = 'models'
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 
@@ -65,17 +64,56 @@ def download_file():
     return send_file(path, as_attachment=True)
 
 
-def load_model():
+def load_model(file_name):
     print("Loading the model...")
-    with open('./models/' + MODEL_FILE_NAME, 'rb') as f:
+    with open('./models/' + file_name, 'rb') as f:
         model = pickle.load(f)
         print("The model has been loaded... doing predictions now...")
         return model
 
 
-if __name__ == '__main__':
+@app.route('/uploadmodel', methods=['POST'])
+def upload_model():
+    if 'model' not in request.files:
+        return jsonify({'error': 'No file part'}), 400
+    model_file = request.files['model']
+    if model_file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+    if model_file:
+        filename = model_file.filename
+        if filename.endswith('.pk'):
+            file_path = os.path.join(UPLOAD_MODEL_FOLDER, filename)
+            clear_folder()
+            model_file.save(file_path)
 
-    model = load_model()
+            global model
+            global predictor
+            model = load_model(filename)
+            predictor = Predictor(model)
+
+            return jsonify({'message': 'File uploaded successfully', 'file_path': file_path}), 200
+        else:
+            return jsonify({'error': 'File format not supported. Please upload a .pk file'}), 400
+
+
+def clear_folder():
+    folder_path = UPLOAD_MODEL_FOLDER
+    if os.path.exists(folder_path):
+        files = os.listdir(folder_path)
+        for file_name in files:
+            file_path = os.path.join(folder_path, file_name)
+            try:
+                if os.path.isfile(file_path):
+                    os.remove(file_path)
+                elif os.path.isdir(file_path):
+                    os.rmdir(file_path)
+            except Exception as e:
+                print(f"Ошибка при удалении файла {file_path}: {e}")
+
+
+if __name__ == '__main__':
+    files = os.listdir(os.path.join(BASE_DIR, UPLOAD_MODEL_FOLDER))
+    model = load_model(files[0])
     predictor = Predictor(model)
 
     if not os.path.exists(os.path.join(BASE_DIR, UPLOAD_FOLDER)):

@@ -4,6 +4,7 @@ from pypdf import PdfReader
 import PyPDF2
 from docx import Document
 from striprtf.striprtf import rtf_to_text
+import textract
 
 class FileReader:
     def __init__(self):
@@ -75,5 +76,7 @@ class FileReader:
                 text = f.read()
         elif file_extension == 'rtf':
             text = self.read_rtf(file_path)
+        elif file_extension == 'doc':
+            text = textract.process(file_path)
 
         return text
