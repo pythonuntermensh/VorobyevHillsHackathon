@@ -53,6 +53,7 @@ def list_files():
     
     result = []
     for file in files:
+        if len(file.split("___|___")) < 3: continue
         class_name, timestamp, file_name = file.split("___|___")
         result.append({"name": file_name, "class": class_name, "timestamp": timestamp})
 
