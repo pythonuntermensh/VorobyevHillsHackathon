@@ -1,9 +1,8 @@
 from datetime import datetime
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
-import os
-from util import FileReader, Predictor
-import pickle
+import os, pickle
+from util import FileReader, Predictor, KeywordsExtractor
 
 app = Flask(__name__)
 CORS(app)
@@ -11,8 +10,10 @@ CORS(app)
 model = None
 predictor = None
 file_reader = FileReader()
+keywords_extractor = KeywordsExtractor()
 
 UPLOAD_FOLDER = 'archieve'
+FILES_KEYWORDS_FOLDER = 'keywords_archieve'
 UPLOAD_MODEL_FOLDER = 'models'
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -25,6 +26,7 @@ def upload_files():
     files = request.files.getlist('files')
     texts_list = []
     file_names = []
+    keywords_lists = []
     for file in files:
         if file.filename == '':
             return jsonify({'error': 'netu nekogo'})
@@ -35,14 +37,19 @@ def upload_files():
         file_names.append(os.path.join(UPLOAD_FOLDER, filename))
 
         file.save(os.path.join(UPLOAD_FOLDER, filename))
-        texts_list.append(file_reader.convert_to_text(os.path.join(UPLOAD_FOLDER, filename)))
+
+        text = file_reader.convert_to_text(os.path.join(UPLOAD_FOLDER, filename))
+        texts_list.append(text)
+        keywords_lists.append(" ".join([x[0] for x in keywords_extractor.get_keywords(text)]))
 
     predictions = predictor.predict(texts_list)
 
     results = {}
     for i in range(len(files)):
         results[files[i].filename] = predictions[i]
-        os.rename(file_names[i], os.path.join(file_names[i].split("/")[0], predictions[i] + "___|___" + file_names[i].split("/")[1]))
+        os.rename(file_names[i], os.path.join(UPLOAD_FOLDER, predictions[i] + "___|___" + file_names[i].split("/")[1]))
+        with open(os.path.join(FILES_KEYWORDS_FOLDER, predictions[i] + "___|___" + file_names[i].split("/")[1] + ".txt"), 'w') as f:
+            f.write(keywords_lists[i])
 
     return jsonify({'message': results})
 
@@ -53,9 +60,13 @@ def list_files():
     
     result = []
     for file in files:
+        keywords = ""
+        with open(os.path.join(FILES_KEYWORDS_FOLDER, file + ".txt")) as f:
+            keywords = f.read()
+
         if len(file.split("___|___")) < 3: continue
         class_name, timestamp, file_name = file.split("___|___")
-        result.append({"name": file_name, "class": class_name, "timestamp": timestamp})
+        result.append({"name": file_name, "class": class_name, "timestamp": timestamp, "keywords": keywords})
 
     return jsonify({'files': result})
 
@@ -119,6 +130,9 @@ if __name__ == '__main__':
 
     if not os.path.exists(os.path.join(BASE_DIR, UPLOAD_FOLDER)):
         os.mkdir(UPLOAD_FOLDER)
+
+    if not os.path.exists(os.path.join(BASE_DIR, FILES_KEYWORDS_FOLDER)):
+        os.mkdir(FILES_KEYWORDS_FOLDER)
 
     app.run(host="0.0.0.0", debug=True, port=8000)
 
