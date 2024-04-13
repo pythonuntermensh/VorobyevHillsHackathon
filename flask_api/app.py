@@ -15,8 +15,8 @@ file_reader = FileReader()
 MODEL_FILE_NAME = "model.pk"
 
 UPLOAD_FOLDER = 'archieve'
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
+BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 
 @app.route('/uploads', methods=['POST'])
 def upload_files():
@@ -33,17 +33,17 @@ def upload_files():
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         filename = f"{timestamp}___|___{file.filename}"
 
-        file_names.append(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        file_names.append(os.path.join(UPLOAD_FOLDER, filename))
 
-        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-        texts_list.append(file_reader.convert_to_text(os.path.join(app.config['UPLOAD_FOLDER'], filename)))
+        file.save(os.path.join(UPLOAD_FOLDER, filename))
+        texts_list.append(file_reader.convert_to_text(os.path.join(UPLOAD_FOLDER, filename)))
 
     predictions = predictor.predict(texts_list)
 
     results = {}
     for i in range(len(files)):
         results[files[i].filename] = predictions[i]
-        os.rename(file_names[i], file_names[i].split("/")[0] + "/" + predictions[i] + "___|___" + file_names[i].split("/")[1])
+        os.rename(file_names[i], os.path.join(file_names[i].split("/")[0], predictions[i] + "___|___" + file_names[i].split("/")[1]))
 
     return jsonify({'message': results})
 
@@ -69,7 +69,12 @@ def load_model():
 
 
 if __name__ == '__main__':
+
     model = load_model()
     predictor = Predictor(model)
-    app.run(debug=True, port=8000)
+
+    if not os.path.exists(os.path.join(BASE_DIR, UPLOAD_FOLDER)):
+        os.mkdir(UPLOAD_FOLDER)
+
+    app.run(host="0.0.0.0", debug=True, port=8000)
 
